@@ -1,2 +1,2 @@
 # krakyn
-decentralized &amp; e2ee server chat protocol
+decentralized &amp; self-hosted server chat protocol
