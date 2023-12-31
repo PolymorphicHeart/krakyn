@@ -30,6 +30,9 @@
 #include <unordered_map>
 #include <cctype>
 #include <algorithm>
+#include <filesystem>
+#include <sstream>
+#include <fstream>
 
 /* -------- Core Module -------------------------
  * ----------------------------------------------
@@ -86,16 +89,31 @@ namespace kyn
  * ----------------------------------------------
 */
 
-#define KYN_AUTH_ASYM_MACBYTES 16u
+#define KYN_AUTH_ASYM_MACBYTES   16u
+#define KYN_AUTH_ASYM_NONCEBYTES 24u
+#define KYN_AUTH_ASYM_KEYBYTES   32u
+
+#define KYN_AUTH_SYM_MACBYTES   16u
+#define KYN_AUTH_SYM_NONCEBYTES 24u
+#define KYN_AUTH_SYM_KEYBYTES   32u
 
 namespace kyn
 {
+    KAPI byte_vec_t base64_to_bytes (const std::string& str);
+    KAPI std::string bytes_to_base64 (const byte_vec_t& bytes);
+
     KAPI uint32_t gen_random_val (uint32_t max);
     KAPI byte_vec_t gen_random_bytes (uint32_t size);
     KAPI byte_vec_pair_t gen_asym_keys ();
 
     KAPI byte_vec_t asym_encrypt (const byte_vec_t& msg, const byte_vec_t& nonce, const byte_vec_t& recv_pk, const byte_vec_t& send_sk);
     KAPI byte_vec_t asym_decrypt (const byte_vec_t& msg, const byte_vec_t& nonce, const byte_vec_t& send_pk, const byte_vec_t& recv_sk);
+
+    KAPI byte_vec_t sym_encrypt (const byte_vec_t& msg, const byte_vec_t& nonce, const byte_vec_t& key);
+    KAPI byte_vec_t sym_decrypt (const byte_vec_t& msg, const byte_vec_t& nonce, const byte_vec_t& key);
+
+    KAPI byte_vec_pair_t gen_new_profile (const std::string& path, const std::string& user, const std::string& pass);
+    KAPI byte_vec_pair_t load_profile_from_disk (const std::string& path, const std::string& user, const std::string& pass);
 
     KAPI bool init_auth_module ();
     KAPI bool shutdown_auth_module ();
@@ -114,7 +132,7 @@ namespace kyn
         QUIT,
         DATA,
 
-        // client
+        // client 
         CONNECT_ANONYMOUS,
         CONNECT_REQUEST,
 
@@ -130,7 +148,7 @@ namespace kyn
     {
         public:
             packet_type_t m_Type;
-            std::vector<char> m_Data;
+            byte_vec_t m_Data;
     };
 
     template <class T>
@@ -160,6 +178,9 @@ namespace kyn
     class KAPI client_endp_t : public endp_t
     {
         public:
+            client_endp_t();
+            ~client_endp_t();
+
             std::vector<server_endp_t> m_ServerConns;
     };
 
