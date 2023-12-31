@@ -37,5 +37,8 @@
 *.out
 *.app
 
+# Kyn files
+*.kyn
+
 # MacOS Cache files
 *.DS_Store
