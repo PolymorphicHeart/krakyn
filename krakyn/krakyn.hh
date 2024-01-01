@@ -1,3 +1,17 @@
+/*  ██╗  ██╗██████╗  █████╗ ██╗  ██╗██╗   ██╗███╗   ██╗
+ *  ██║ ██╔╝██╔══██╗██╔══██╗██║ ██╔╝╚██╗ ██╔╝████╗  ██║
+ *  █████╔╝ ██████╔╝███████║█████╔╝  ╚████╔╝ ██╔██╗ ██║
+ *  ██╔═██╗ ██╔══██╗██╔══██║██╔═██╗   ╚██╔╝  ██║╚██╗██║
+ *  ██║  ██╗██║  ██║██║  ██║██║  ██╗   ██║   ██║ ╚████║
+ *  ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝   ╚═╝   ╚═╝  ╚═══╝
+ * =====================================================
+ *     Decentralized // Encrypted // Chat Protocol
+ * =====================================================
+ * LICENSE:                                   Apache 2.0
+ * FILE:                    core header file (krakyn.hh)
+ * =====================================================
+*/
+
 #ifndef KRAKYN_H
 #define KRAKYN_H
 
@@ -26,6 +40,7 @@
 
 #include <string>
 #include <iostream>
+#include <optional>
 #include <vector>
 #include <unordered_map>
 #include <cctype>
@@ -33,6 +48,8 @@
 #include <filesystem>
 #include <sstream>
 #include <fstream>
+#include <thread>
+#include <mutex>
 
 /* -------- Core Module -------------------------
  * ----------------------------------------------
@@ -47,11 +64,13 @@ namespace kyn
     KAPI bool shutdown_all_modules ();
 }
 
-/* -------- Socket Module -----------------------
+/* -------- Networking Module -------------------
  * ----------------------------------------------
 */
 
 #define KYN_SOCK_LOOPBACK_ADDR "::1"
+#define KYN_SOCK_EMPTY_ADDR    ""
+
 #define KYN_SOCK_TCP_PORT 14460
 #define KYN_SOCK_MAX_QUEUE 100
 #define KYN_SOCK_NEW_ID -2
@@ -65,13 +84,14 @@ namespace kyn
             std::string m_Address;
 
         public:
-            tcp_socket_t (const std::string& addr = "::1", int32_t id = -2);
+            tcp_socket_t (const std::string& addr = KYN_SOCK_LOOPBACK_ADDR, int32_t id = KYN_SOCK_NEW_ID);
             ~tcp_socket_t ();
 
             bool bind ();
             bool connect ();
             bool listen ();
             tcp_socket_t accept ();
+            void close ();
 
             int32_t recieve (void* buffer, int32_t size);
             int32_t send (const void* buffer, int32_t size);
@@ -99,6 +119,13 @@ namespace kyn
 
 namespace kyn
 {
+    struct KAPI profile_t
+    {
+        public:
+            std::string m_Name;
+            byte_vec_pair_t m_Keypair;
+    };
+
     KAPI byte_vec_t base64_to_bytes (const std::string& str);
     KAPI std::string bytes_to_base64 (const byte_vec_t& bytes);
 
@@ -112,8 +139,8 @@ namespace kyn
     KAPI byte_vec_t sym_encrypt (const byte_vec_t& msg, const byte_vec_t& nonce, const byte_vec_t& key);
     KAPI byte_vec_t sym_decrypt (const byte_vec_t& msg, const byte_vec_t& nonce, const byte_vec_t& key);
 
-    KAPI byte_vec_pair_t gen_new_profile (const std::string& path, const std::string& user, const std::string& pass);
-    KAPI byte_vec_pair_t load_profile_from_disk (const std::string& path, const std::string& user, const std::string& pass);
+    KAPI profile_t gen_new_profile (const std::string& path, const std::string& user, const std::string& pass);
+    KAPI profile_t load_profile_from_disk (const std::string& path, const std::string& user, const std::string& pass);
 
     KAPI bool init_auth_module ();
     KAPI bool shutdown_auth_module ();
@@ -172,23 +199,49 @@ namespace kyn
 
 namespace kyn
 {
-    class server_endp_t;
-    class KAPI endp_t {};
-
-    class KAPI client_endp_t : public endp_t
+    struct KAPI endp_desc_t
     {
         public:
-            client_endp_t();
-            ~client_endp_t();
+            tcp_socket_t m_Socket;
+            std::string  m_Name;
+            byte_vec_t   m_PublicKey;
+            byte_vec_t   m_SessionKey;
+            bool         m_Complete;
+    };
 
-            std::vector<server_endp_t> m_ServerConns;
+    class KAPI endp_t
+    {
+        public:
+            profile_t m_Profile;
+            bool m_Authenticated = false;
+
+        public:
+            inline endp_t () = default;
+            inline virtual ~endp_t () {}
     };
 
     class KAPI server_endp_t : public endp_t
     {
-        public:
+        private:
             tcp_socket_t m_ListenerSocket;
-            std::vector<client_endp_t> m_ClientConns;
+            std::vector<endp_desc_t> m_ClientConns;
+            bool m_Running;
+
+        public:
+            server_endp_t (const profile_t& profile);
+            ~server_endp_t ();
+
+            void init ();
+    };
+
+    class KAPI client_endp_t : public endp_t
+    {
+        private:
+            std::vector<endp_desc_t> m_ServerConns;
+
+        public:
+            client_endp_t ();
+            ~client_endp_t ();
     };
 }
 

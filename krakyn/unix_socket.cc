@@ -15,10 +15,7 @@ namespace kyn
         if (m_ID == -2) m_ID = socket(AF_INET6, SOCK_STREAM, IPPROTO_TCP);
     }
 
-    tcp_socket_t::~tcp_socket_t ()
-    {
-        close(m_ID);
-    }
+    tcp_socket_t::~tcp_socket_t () {}
 
     bool tcp_socket_t::bind ()
     {
@@ -26,7 +23,7 @@ namespace kyn
         saddr.sin6_family  = AF_INET6;
 	    saddr.sin6_port    = htons(KYN_SOCK_TCP_PORT);
 
-        if (m_Address != "ANY") inet_pton(AF_INET6, m_Address.c_str(), &saddr.sin6_addr);
+        if (m_Address != "") inet_pton(AF_INET6, m_Address.c_str(), &saddr.sin6_addr);
         else saddr.sin6_addr = in6addr_any;
 
         auto ret = ::bind(m_ID, reinterpret_cast<struct sockaddr*>(&saddr), sizeof(saddr));
@@ -65,9 +62,15 @@ namespace kyn
         return tcp_socket_t(addr, id);
     }
 
+    void tcp_socket_t::close ()
+    {
+        if (m_ID == -1) return;
+        ::close(m_ID);
+    }
+
     int32_t tcp_socket_t::recieve (void* buffer, int32_t size)
     {
-        return ::recv(m_ID, buffer, size, 0);
+        return ::recv(m_ID, buffer, size, MSG_WAITALL);
     }
 
     int32_t tcp_socket_t::send (const void* buffer, int32_t size)

@@ -8,18 +8,30 @@ set (CMAKE_CXX_STANDARD 20)
 set (CORE_SRCS
     "krakyn/krakyn.cc"
     "krakyn/unix_socket.cc"
-    "krakyn/authentication.cc")
+    "krakyn/authentication.cc"
+    "krakyn/endpoints.cc")
 
 set (CORE_INCS
-    "/opt/homebrew/Cellar/libsodium/1.0.19/include"
     "krakyn/")
+
+if (UNIX)
+    set (CORE_INCS_PLATFORM "/usr/local/include")
+else ()
+    set (CORE_INCS_PLATFORM "")
+endif ()
+
+if (UNIX)
+    set (CORE_LIB_PATHS "/usr/local/lib")
+else ()
+    set (CORE_LIB_PATHS "")
+endif ()
 
 project                    (krakyn)
 add_library                (krakyn SHARED ${CORE_SRCS})
 target_compile_definitions (krakyn PRIVATE KYN_BUILD_LIB)
-target_include_directories (krakyn PRIVATE ${CORE_INCS})
+target_include_directories (krakyn PRIVATE ${CORE_INCS} ${CORE_INCS_PLATFORM})
 target_precompile_headers  (krakyn PUBLIC "krakyn/krakyn.hh")
-target_link_directories    (krakyn PRIVATE "/opt/homebrew/Cellar/libsodium/1.0.19/lib")
+target_link_directories    (krakyn PRIVATE ${CORE_LIB_PATHS})
 target_link_libraries      (krakyn PRIVATE sodium)
 
 # -------- Server Runtime ----------------------

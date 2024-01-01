@@ -1,13 +1,12 @@
 #include "krakyn.hh"
 
-#define SODIUM_STATIC
+#define SODIUM_STATIC 1
 #include <sodium.h>
 
 static bool s_AuthModuleInit = false;
 
 namespace kyn
 {
-
     byte_vec_t base64_to_bytes (const std::string& str)
     {
         byte_vec_t buffer((str.size() / 4 * 3) + 1);
@@ -137,8 +136,11 @@ namespace kyn
         return plain_buffer;
     }
 
-    byte_vec_pair_t gen_new_profile (const std::string& path, const std::string& user, const std::string& pass)
+    profile_t gen_new_profile (const std::string& path, const std::string& user, const std::string& pass)
     {
+        std::ofstream ofs(path);
+        if (ofs.bad()) return profile_t();
+        
         std::string masterkey = user + pass;
         auto keypair = gen_asym_keys();
 
@@ -154,10 +156,7 @@ namespace kyn
             crypto_pwhash_ALG_DEFAULT
         );
  
-        if (ret != 0) return byte_vec_pair_t(byte_vec_t(0), byte_vec_t(0));
-
-        std::ofstream ofs(path);
-        if (ofs.bad()) return byte_vec_pair_t(byte_vec_t(0), byte_vec_t(0));
+        if (ret != 0) return profile_t();
 
         ofs 
             << user << "\n" 
@@ -166,13 +165,13 @@ namespace kyn
             << bytes_to_base64(sym_encrypt(keypair.first, nonce, key)) << "\n"
             << bytes_to_base64(sym_encrypt(keypair.second, nonce, key));
 
-        return keypair;
+        return (profile_t){.m_Keypair = keypair, .m_Name = user};
     }
 
-    byte_vec_pair_t load_profile_from_disk (const std::string& path, const std::string& user, const std::string& pass)
+    profile_t load_profile_from_disk (const std::string& path, const std::string& user, const std::string& pass)
     {
         std::ifstream ifs(path);
-        if (ifs.bad()) return byte_vec_pair_t(byte_vec_t(0), byte_vec_t(0));
+        if (ifs.bad()) return profile_t();
 
         std::string data[5];
         std::string line;
@@ -195,12 +194,12 @@ namespace kyn
             crypto_pwhash_ALG_DEFAULT
         );
 
-        if (ret != 0) return byte_vec_pair_t(byte_vec_t(0), byte_vec_t(0));
+        if (ret != 0) return profile_t();
 
         auto pk = sym_decrypt(en_pk, nonce, key);
         auto sk = sym_decrypt(en_sk, nonce, key);
 
-        return byte_vec_pair_t(pk, sk);
+        return (profile_t){.m_Keypair = byte_vec_pair_t(pk, sk), .m_Name = user};
     }
 
     bool init_auth_module ()
